@@ -60,9 +60,10 @@ const addToCart = async (req, res) => {
 // 3. XÓA 1 MÓN KHỎI GIỎ HÀNG (DELETE /api/carts/:userId/items/:itemId)
 const removeCartItem = async (req, res) => {
   try {
+    const targetSku = req.params.itemId.toUpperCase();
     const updatedCart = await Cart.findOneAndUpdate(
       { userId: req.params.userId },
-      { $pull: { items: { _id: req.params.itemId } } },
+      { $pull: { items: { sku: targetSku } } },
       { new: true }
     );
 
@@ -79,25 +80,27 @@ const removeCartItem = async (req, res) => {
     res.status(400).json({ success: false, message: 'Lỗi khi xóa sản phẩm', error: error.message });
   }
 };
+
 // 4. CẬP NHẬT SỐ LƯỢNG MÓN TRONG GIỎ (PATCH /api/carts/:userId/items/:itemId)
 const updateCartItemQuantity = async (req, res) => {
   try {
     const { quantity } = req.body;
     const newQty = Number(quantity);
+    const targetSku = req.params.itemId.toUpperCase();
 
-    // Nếu số lượng <= 0 thì xóa luôn món đó khỏi giỏ
+    // Nếu số lượng <= 0 thì xóa luôn món đó khỏi giỏ theo sku
     if (newQty <= 0) {
       const updatedCart = await Cart.findOneAndUpdate(
         { userId: req.params.userId },
-        { $pull: { items: { _id: req.params.itemId } } },
+        { $pull: { items: { sku: targetSku } } },
         { new: true }
       );
       return res.status(200).json({ success: true, message: 'Đã xóa món khỏi giỏ', data: updatedCart });
     }
 
-    // Cập nhật đúng phần tử có _id khớp trong mảng items bằng toán tử $
+    // Cập nhật đúng phần tử có sku khớp trong mảng items bằng toán tử $
     const updatedCart = await Cart.findOneAndUpdate(
-      { userId: req.params.userId, 'items._id': req.params.itemId },
+      { userId: req.params.userId, 'items.sku': targetSku },
       { $set: { 'items.$.quantity': newQty } },
       { new: true }
     );
