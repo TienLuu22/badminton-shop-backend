@@ -1,159 +1,156 @@
-const { json } = require('express');
-const Product =  require('../models/Product');
+const Product = require('../models/Product');
 require('../models/Brand');
 require('../models/Category');
 
-const getAllProducts = async(req, res) => {
-    try{
-        const products = await Product.find({status: 'active'})
-            .populate('brandId', 'name slug country')
-            .populate('categoryId', 'name slug')
-            .sort({ createdAt: -1 });
-        res.status(200).json({
-            success: true,
-            count: products.length,
-            data: products
-        });
-    }catch(error){
-        res.status(500).json({
-            success: false,
-            message: 'Loi may chu khi lay san pham',
-            error: error.message
-        });
-    }
-}; 
-
-const getProductBySlug = async (req, res) =>{
-    try{
-        const product = await Product.findOne({ slug: req.params.slug })
-            .populate('brandId', 'name slug country')
-            .populate('categoryId', 'name slug');
-        if(!product){
-            return res.status(404).json({
-                success: false,
-                message: 'khong tim thay san pham'
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            data: product
-        });
-    }catch(error){
-    res.status(500).json({
-        success:false,
-        message: 'Loi may chu',
-        error: error.message
+const getAllProducts = async (req, res) => {
+  try {
+    const products = await Product.find({ status: 'active' })
+      .populate('brandId', 'name slug country')
+      .populate('categoryId', 'name slug')
+      .sort({ createdAt: -1 });
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products
     });
-    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi máy chủ khi lấy sản phẩm',
+      error: error.message
+    });
+  }
 };
 
-const  createProduct = async(req, res) => {
-    try{
-        const newProduct = await Product.create(req.body);
-        res.status(201).json({
-            success: true,
-            data: newProduct
-        });
-    }catch(error){
-        res.status(400).json({
-            success: false,
-            message: 'du lieu khong dung',
-            error : error.message
-        });
+const getProductBySlug = async (req, res) => {
+  try {
+    const product = await Product.findOne({ slug: req.params.slug })
+      .populate('brandId', 'name slug country')
+      .populate('categoryId', 'name slug');
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sản phẩm'
+      });
     }
+
+    res.status(200).json({
+      success: true,
+      data: product
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi máy chủ',
+      error: error.message
+    });
+  }
 };
 
-const updateProduct =  async(req, res) => {
-    try{
-        const updatedProduct = await Product.findByIdAndUpdate(req.params.id, 
-            {$set: req.body},
-            {$new: true, runValidators: true}
-        );
-        if(!updatedProduct){
-            return res.status(404).json({
-                success: false,
-                message: 'khong tim thay san pham cap nhat'
-            });
+const createProduct = async (req, res) => {
+  try {
+    const newProduct = await Product.create(req.body);
+    res.status(201).json({
+      success: true,
+      data: newProduct
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Dữ liệu không đúng',
+      error: error.message
+    });
+  }
+};
+
+const updateProduct = async (req, res) => {
+  try {
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
+    if (!updatedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sản phẩm cập nhật'
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: updatedProduct
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Lỗi khi cập nhật',
+      error: error.message
+    });
+  }
+};
+
+const decreaseVariantStock = async (req, res) => {
+  try {
+    const { sku, quantity } = req.body;
+    const updatedProduct = await Product.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        variants: {
+          $elemMatch: { sku: sku.toUpperCase(), stock: { $gte: quantity } }
         }
-        res.status(200).json({
-            success: true,
-            data: updatedProduct
-        });
-    }catch(error){
-        res.status(400).json({
-            success: false,
-            message: 'loi khi cap nhat',
-            error : error.message
-        });
+      },
+      {
+        $inc: { 'variants.$.stock': -quantity }
+      },
+      { new: true }
+    );
+    if (!updatedProduct) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không tìm thấy tồn kho hoặc SKU'
+      });
     }
+    res.status(200).json({
+      success: true,
+      data: updatedProduct
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Lỗi trừ tồn kho',
+      error: error.message
+    });
+  }
 };
 
-const decreaseVariantStock = async (req, res) =>
-{
-    try{
-        const { sku, quantity } = req.body;
-        const updatedProduct = await Product.findOneAndUpdate(
-            {
-                _id: req.params.id,
-                variants:{
-                    $elemMatch: {sku: sku.toUpperCase(), stock: { $gte: quantity}} 
-                }
-            },
-            {
-                $inc: { 'variants.$.stock': -quantity}
-            },
-            {new: true}
-        );
-        if(!updatedProduct) {
-            return res.status(400).json({
-                success: false,
-                message: 'Khong tim thay ton kho, hay SKU'
-            });
-        }
-        res.status(200),json({
-            success: true,
-            data: updatedProduct
-        });
-    }catch(error){
-        res.status(400).json({
-            success: false,
-            message: 'Loi tru ton kho',
-            error : error.message
-        });
-    
-    }
-};
+const deleteProduct = async (req, res) => {
+  try {
+    const deletedProduct = await Product.findByIdAndDelete(req.params.id);
 
-const deleteProduct = async (req, res) =>{
-    try{
-        const deleteProduct = await Product.findByIdAndDelete(req.params.id);
-        
-        if(!deleteProduct){
-            return res.status(404).json({
-                success: false,
-                message: 'Khong thay san pham can xoa'
-            });
-        }
-        res.status(200).json({
-            success: true,
-            message: "da xoa san pham thanh cong"
-        });
-    } catch(error){
-        res.status(400).json({
-            success: false,
-            message: "Loi khi xoa san pham",
-            error : error.message
-        });
+    if (!deletedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không thấy sản phẩm cần xóa'
+      });
     }
+    res.status(200).json({
+      success: true,
+      message: 'Đã xóa sản phẩm thành công'
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Lỗi khi xóa sản phẩm',
+      error: error.message
+    });
+  }
 };
 
 module.exports = {
-    getAllProducts, 
-    getProductBySlug,
-    createProduct,
-    updateProduct,
-    decreaseVariantStock,
-    deleteProduct
-
+  getAllProducts,
+  getProductBySlug,
+  createProduct,
+  updateProduct,
+  decreaseVariantStock,
+  deleteProduct
 };

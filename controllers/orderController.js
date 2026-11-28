@@ -183,8 +183,62 @@ const checkoutFromCart = async (req, res) => {
   }
 };
 
-module.exports = {
-  createOrder,
-  getOrdersByUser,
-  checkoutFromCart
+// 4. LẤY CHI TIẾT 1 ĐƠN HÀNG (GET /api/orders/:orderId)
+const getOrderById = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.orderId)
+      .populate('userId', 'fullName phone email')
+      .populate('items.productId', 'images slug');
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
+    }
+
+    res.status(200).json({ success: true, data: order });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi lấy chi tiết đơn hàng', error: error.message });
+  }
 };
+
+// 5. KHÁCH HỦY ĐƠN HÀNG & HOÀN TỒN KHO (PATCH /api/orders/:orderId/cancel)
+const cancelOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
+    }
+
+    if (order.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Chỉ có thể hủy đơn hàng khi đang ở trạng thái Chờ xác nhận!'
+      });
+    }
+
+    // Hoàn trả lại số lượng tồn kho cho từng phân loại SKU
+    for (const item of order.items) {
+      await Product.findOneAndUpdate(
+        { _id: item.productId, 'variants.sku': item.sku },
+        { $inc: { 'variants.$.stock': item.quantity } }
+      );
+    }
+
+    order.status = 'cancelled';
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Đã hủy đơn hàng và hoàn trả tồn kho thành công!',
+      data: order
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: 'Lỗi khi hủy đơn hàng', error: error.message });
+  }
+};
+
+module.exports = { 
+  createOrder, 
+  getOrdersByUser, 
+  checkoutFromCart, 
+  getOrderById, 
+  cancelOrder };
