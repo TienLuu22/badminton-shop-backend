@@ -44,7 +44,8 @@ router.post('/register', async (req, res) => {
         _id: newUser._id,
         fullName: newUser.fullName,
         email: newUser.email,
-        phone: newUser.phone
+        phone: newUser.phone,
+        role: newUser.role || 'customer'
       }
     });
   } catch (err) {
@@ -100,7 +101,8 @@ router.post('/login', async (req, res) => {
         _id: user._id,
         fullName: user.fullName,
         email: user.email,
-        phone: user.phone
+        phone: user.phone,
+        role: user.role || 'customer'
       }
     });
   } catch (err) {
