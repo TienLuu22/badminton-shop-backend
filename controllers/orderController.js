@@ -236,9 +236,69 @@ const cancelOrder = async (req, res) => {
   }
 };
 
-module.exports = { 
+// 6. ADMIN: LẤY TOÀN BỘ ĐƠN HÀNG CỦA HỆ THỐNG (GET /api/orders/admin/all)
+const getAllOrdersAdmin = async (req, res) => {
+  try {
+    const orders = await Order.find({})
+      .populate('userId', 'fullName email phone')
+      .populate('items.productId', 'images slug')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: orders.length,
+      data: orders
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi lấy danh sách đơn hàng Admin', error: error.message });
+  }
+};
+
+// 7. ADMIN: CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG (PATCH /api/orders/admin/:orderId/status)
+const updateOrderStatusAdmin = async (req, res) => {
+  try {
+    const { status, paymentStatus } = req.body;
+    const order = await Order.findById(req.params.orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
+    }
+
+    const prevStatus = order.status;
+
+    // Nếu chuyển sang 'cancelled' từ trạng thái chưa hủy -> tự động hoàn trả tồn kho
+    if (status === 'cancelled' && prevStatus !== 'cancelled') {
+      for (const item of order.items) {
+        await Product.findOneAndUpdate(
+          { _id: item.productId, 'variants.sku': item.sku },
+          { $inc: { 'variants.$.stock': item.quantity } }
+        );
+      }
+    }
+
+    if (status) order.status = status;
+    if (paymentStatus) {
+      order.paymentStatus = paymentStatus;
+    } else if (status === 'delivered' && order.paymentStatus !== 'paid') {
+      order.paymentStatus = 'paid'; // Giao thành công mặc định thu đủ tiền
+    }
+
+    await order.save();
+    res.status(200).json({
+      success: true,
+      message: 'Đã cập nhật trạng thái đơn hàng!',
+      data: order
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: 'Lỗi cập nhật trạng thái đơn', error: error.message });
+  }
+};
+
+module.exports = {
   createOrder, 
   getOrdersByUser, 
   checkoutFromCart, 
   getOrderById, 
-  cancelOrder };
+  cancelOrder, 
+  getAllOrdersAdmin, 
+  updateOrderStatusAdmin 
+};
