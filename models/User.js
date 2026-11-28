@@ -33,12 +33,4 @@ userSchema.index(
   { unique: true, partialFilterExpression: { phone: { $type: 'string' } } }
 );
 
-// Ràng buộc nghiệp vụ: Phải có ít nhất email hoặc phone
-userSchema.pre('validate', function (next) {
-  if (!this.email && !this.phone) {
-    this.invalidate('email', 'Vui lòng cung cấp Email hoặc Số điện thoại.');
-  }
-  next();
-});
-
 module.exports = mongoose.model('User', userSchema);

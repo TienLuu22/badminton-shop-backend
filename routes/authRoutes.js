@@ -31,8 +31,8 @@ router.post('/register', async (req, res) => {
 
     const newUser = await User.create({
       fullName: fullName.trim(),
-      email: cleanEmail,
-      phone: cleanPhone,
+      email: cleanEmail || null,
+      phone: cleanPhone || null,
       passwordHash: password,
       role: 'customer'
     });
